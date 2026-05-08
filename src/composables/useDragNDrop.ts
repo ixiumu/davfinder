@@ -1,0 +1,171 @@
+import ModalMove from '../components/modals/ModalMove.vue';
+import type { App, DirEntry, DirEntryType } from '../types';
+import { useStore } from '@nanostores/vue';
+import type { StoreValue } from 'nanostores';
+
+export interface DragNDropItem {
+  path: string;
+  type: DirEntryType;
+}
+
+export interface DragNDropEvent extends DragEvent {
+  currentTarget: HTMLElement;
+  isExternalDrag: boolean;
+}
+
+export function useDragNDrop(app: App, classList: string[] = []) {
+  const DATASET_COUNTER_KEY = 'vfDragEnterCounter';
+  const fs = app.fs;
+
+  // Make selectedItems reactive
+  const selectedItems: StoreValue<DirEntry[]> = useStore(fs.selectedItems);
+
+  function isInvalidDropTarget(target: DragNDropItem, draggedPath: string): boolean {
+    // Target is missing
+    if (!target) {
+      return true;
+    }
+
+    // Target is not a directory
+    if (target.type !== 'dir') {
+      return true;
+    }
+
+    // Dragging onto itself, or a parent of the dragged item
+    if (target.path.startsWith(draggedPath)) {
+      return true;
+    }
+
+    const hasConflictingSelection = selectedItems.value.some((item: DirEntry) => {
+      // the dragged item is one of the selected items, then that means we are dragging multiple items to a target
+      if (item.path === draggedPath) {
+        return false;
+      }
+      // the target is a child of the selected item
+      if (target.path.startsWith(item.path)) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (hasConflictingSelection) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleDragOver(e: DragNDropEvent, target: DragNDropItem) {
+    // Skip if this is an external drag
+    if (e.isExternalDrag) {
+      return;
+    }
+
+    // Check if move feature is enabled
+    const features = app.features as Record<string, boolean>;
+    if (!(features?.move ?? false)) {
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'none';
+        e.dataTransfer.effectAllowed = 'none';
+      }
+      return;
+    }
+
+    e.preventDefault();
+
+    const draggedPath = fs.getDraggedItem() as string;
+
+    if (isInvalidDropTarget(target, draggedPath)) {
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'none';
+        e.dataTransfer.effectAllowed = 'none';
+      }
+    } else {
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+        e.dataTransfer.effectAllowed = 'all';
+      }
+      e.currentTarget.classList.add(...classList);
+    }
+  }
+
+  function handleDragEnter(e: DragNDropEvent) {
+    // Skip if this is an external drag
+    if (e.isExternalDrag) {
+      return;
+    }
+
+    // Check if move feature is enabled
+    const features = app.features as Record<string, boolean>;
+    if (!(features?.move ?? false)) {
+      return;
+    }
+
+    e.preventDefault();
+    const el: HTMLElement = e.currentTarget;
+    const currentCount = Number(el.dataset[DATASET_COUNTER_KEY] || 0);
+    el.dataset[DATASET_COUNTER_KEY] = String(currentCount + 1);
+  }
+
+  function handleDragLeave(e: DragNDropEvent) {
+    // Skip if this is an external drag
+    if (e.isExternalDrag) {
+      return;
+    }
+
+    // Check if move feature is enabled
+    const features = app.features as Record<string, boolean>;
+    if (!(features?.move ?? false)) {
+      return;
+    }
+
+    e.preventDefault();
+    const el: HTMLElement = e.currentTarget;
+    const currentCount = Number(el.dataset[DATASET_COUNTER_KEY] || 0);
+    const nextCount = currentCount - 1;
+    if (nextCount <= 0) {
+      delete el.dataset[DATASET_COUNTER_KEY];
+      el.classList.remove(...classList);
+    } else {
+      el.dataset[DATASET_COUNTER_KEY] = String(nextCount);
+    }
+  }
+
+  function handleDropZone(e: DragNDropEvent, target: DragNDropItem) {
+    // Skip if this is an external drag
+    if (e.isExternalDrag) {
+      return;
+    }
+
+    // Check if move feature is enabled
+    const features = app.features as Record<string, boolean>;
+    if (!(features?.move ?? false)) {
+      return;
+    }
+
+    if (!target) return;
+    e.preventDefault();
+    const el: HTMLElement = e.currentTarget;
+    delete el.dataset[DATASET_COUNTER_KEY];
+    el.classList.remove(...classList);
+    const data = e.dataTransfer?.getData('items') || '[]';
+    const draggedItemKeys: string[] = JSON.parse(data);
+    const draggedItems: DirEntry[] = draggedItemKeys.map(
+      (key) => fs.sortedFiles.get().find((f: DirEntry) => f.path === key) as DirEntry
+    );
+    fs.clearDraggedItem();
+    app.modal.open(ModalMove, { items: { from: draggedItems, to: target } });
+  }
+
+  function events(item: DragNDropItem) {
+    return {
+      dragover: (e: DragNDropEvent) => handleDragOver(e, item),
+      dragenter: handleDragEnter,
+      dragleave: handleDragLeave,
+      drop: (e: DragNDropEvent) => handleDropZone(e, item),
+    } as const;
+  }
+
+  return { events };
+}

@@ -1,0 +1,68 @@
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import vueDevTools from 'vite-plugin-vue-devtools';
+import tailwindcss from '@tailwindcss/vite';
+import svgLoader from 'vite-svg-loader';
+import copy from 'rollup-plugin-copy';
+import { resolve } from 'node:path';
+
+// https://vite.dev/config/
+export default defineConfig({
+  publicDir: false,
+  plugins: [
+    vue(),
+    vueDevTools(),
+    tailwindcss(),
+    svgLoader(),
+    copy({
+      targets: [
+        { src: 'src/locales/*', dest: 'dist/locales' },
+      ],
+      hook: 'writeBundle',
+    }),
+  ],
+  resolve: {
+    // alias: {
+    //   '@': fileURLToPath(new URL('./src', import.meta.url))
+    // },
+  },
+  build: {
+    lib: {
+      entry: {
+        davfinder: resolve(__dirname, 'src/index.ts'),
+      },
+      formats: ['es'],
+      name: 'davFinder',
+      fileName: (format, entryName) => `${entryName}.js`,
+    },
+    rollupOptions: {
+      // make sure to externalize deps that shouldn't be bundled
+      // into the library
+      external: [
+        '@nanostores/vue',
+        '@nanostores/persistent',
+        '@tanstack/vue-query',
+        '@uppy/core',
+        '@uppy/xhr-upload',
+        '@uppy/locales',
+        '@viselect/vanilla',
+        '@floating-ui/dom',
+        'mitt',
+        'nanostores',
+        'overlayscrollbars',
+        'vanilla-lazyload',
+        'vue',
+        'vue-advanced-cropper',
+        'vue-sonner'
+      ],
+      output: {
+        exports: 'named',
+        // Provide global variables to use in the UMD build
+        // for externalized deps
+        globals: {
+          vue: 'Vue',
+        },
+      },
+    },
+  },
+});

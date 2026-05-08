@@ -1,0 +1,71 @@
+.vuefinder__item-icon {
+  @apply text-(--vf-text-tertiary);
+  /* Ensure custom icons are constrained */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vuefinder__item-icon--small {
+  height: var(--vf-icon-size, var(--vf-list-icon-size, 20px));
+  width: var(--vf-icon-size, var(--vf-list-icon-size, 20px));
+  min-height: var(--vf-icon-size, var(--vf-list-icon-size, 20px));
+  min-width: var(--vf-icon-size, var(--vf-list-icon-size, 20px));
+  max-height: var(--vf-icon-size, var(--vf-list-icon-size, 20px));
+  max-width: var(--vf-icon-size, var(--vf-list-icon-size, 20px));
+}
+
+.vuefinder__item-icon--large {
+  @apply m-auto;
+  height: var(--vf-icon-size, var(--vf-grid-icon-size, 48px));
+  width: var(--vf-icon-size, var(--vf-grid-icon-size, 48px));
+  min-height: var(--vf-icon-size, var(--vf-grid-icon-size, 48px));
+  min-width: var(--vf-icon-size, var(--vf-grid-icon-size, 48px));
+  max-height: var(--vf-icon-size, var(--vf-grid-icon-size, 48px));
+  max-width: var(--vf-icon-size, var(--vf-grid-icon-size, 48px));
+}
+
+/* Ensure custom icons in slots are responsive */
+.vuefinder__item-icon > * {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* SVG icons should fill the container */
+.vuefinder__item-icon svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  flex-shrink: 0;
+}
+
+/* Ensure images in custom icons are constrained */
+.vuefinder__item-icon img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+}
+
+.vuefinder__themer .vuefinder__item-icon__extension {
+  @apply absolute top-1/2 left-0 w-full text-center text-(--vf-text-tertiary) md:block;
+}
+
+.vuefinder__themer .vuefinder__item-icon__folder {
+  @apply fill-(--vf-accent-primary) stroke-(--vf-accent-primary) text-(--vf-text-tertiary);
+}
+
+.vuefinder__themer .vuefinder__item-icon__folder--open {
+  @apply fill-(--vf-accent-primary) stroke-(--vf-accent-secondary) text-(--vf-text-tertiary);
+}
+
+.vuefinder__themer .vuefinder__item-icon__file {
+  @apply h-full w-full text-(--vf-text-tertiary);
+}

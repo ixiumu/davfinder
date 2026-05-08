@@ -1,0 +1,264 @@
+<script setup lang="ts">
+import { onMounted, watch, unref, useTemplateRef, computed } from 'vue';
+import { useApp } from '../composables/useApp';
+import { useStore } from '@nanostores/vue';
+import { useHotkeyActions } from '../composables/useHotkeyActions';
+import { useExternalDragDrop } from '../composables/useExternalDragDrop';
+import { normalizeFeatures } from '../features';
+
+import MenuBar from '../components/MenuBar.vue';
+import Toolbar from '../components/Toolbar.vue';
+import Breadcrumb from '../components/Breadcrumb.vue';
+import Explorer from '../components/Explorer.vue';
+import ContextMenu from '../components/ContextMenu.vue';
+import Statusbar from '../components/Statusbar.vue';
+import TreeView from '../components/TreeView.vue';
+import ModalUpload from '../components/modals/ModalUpload.vue';
+import { menuItems as contextMenuItems } from '../utils/contextmenu';
+import type { VueFinderProps, DirEntry } from '../types';
+import type { FsData } from '../adapters/types';
+import type { StoreValue } from 'nanostores';
+import type { ConfigState } from '../stores/config';
+import { Toaster } from 'vue-sonner';
+import 'vue-sonner/style.css';
+
+const emit = defineEmits([
+  'select',
+  'path-change',
+  'upload-complete',
+  'delete-complete',
+  'notify',
+  'error',
+  'ready',
+  'file-dclick',
+  'folder-dclick',
+  'update:locale',
+]);
+
+const props = defineProps<VueFinderProps>();
+
+const app = useApp();
+const root = useTemplateRef<HTMLDivElement>('root');
+
+const config = app.config;
+watch(
+  () => props.features,
+  (newFeatures) => {
+    const normalized = normalizeFeatures(newFeatures);
+    // Clear existing features first
+    Object.keys(app.features).forEach((key) => {
+      delete app.features[key];
+    });
+    // Assign new features
+    Object.assign(app.features, normalized);
+  },
+  { deep: true }
+);
+
+const fs = app.fs;
+const reactiveLocale = useStore(app.i18n.localeAtom);
+
+// Use nanostores reactive values for template reactivity
+const configState: StoreValue<ConfigState> = useStore(config.state);
+
+// Computed style for CSS variables based on config
+const rootStyle = computed(() => {
+  const cfg = configState.value;
+  return {
+    '--vf-grid-item-width': `${cfg.gridItemWidth}px`,
+    '--vf-grid-item-height': `${cfg.gridItemHeight}px`,
+    '--vf-grid-item-gap': `${cfg.gridItemGap}px`,
+    '--vf-grid-icon-size': `${cfg.gridIconSize}px`,
+    '--vf-list-item-height': `${cfg.listItemHeight}px`,
+    '--vf-list-item-gap': `${cfg.listItemGap}px`,
+    '--vf-list-icon-size': `${cfg.listIconSize}px`,
+  };
+});
+
+useHotkeyActions();
+
+const { isDraggingExternal, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } =
+  useExternalDragDrop();
+
+// Helper function to update state after adapter operation
+function updateState(responseData: FsData) {
+  fs.setPath(responseData.dirname);
+  if (config.get('persist')) {
+    config.set('path', responseData.dirname);
+  }
+  fs.setReadOnly(responseData.read_only ?? false);
+  app.modal.close();
+  fs.setFiles(responseData.files);
+  fs.clearSelection();
+  fs.setSelectedCount(0);
+  fs.setStorages(responseData.storages);
+}
+
+// Set the callback on adapter manager to update state
+app.adapter.onBeforeOpen = () => {
+  fs.setLoading(true);
+};
+
+app.adapter.onAfterOpen = (responseData: FsData) => {
+  updateState(responseData);
+  fs.setLoading(false);
+};
+
+// Listen for upload-complete event
+app.emitter.on('vf-upload-complete', (files: unknown) => {
+  emit('upload-complete', files as DirEntry[]);
+});
+
+// Listen for delete-complete event
+app.emitter.on('vf-delete-complete', (deletedItems: unknown) => {
+  emit('delete-complete', deletedItems as DirEntry[]);
+});
+
+app.emitter.on('vf-notify', (payload: unknown) => {
+  emit('notify', payload);
+});
+
+// Listen for custom double-click events
+// Emit the cancelable event object directly to handlers
+app.emitter.on('vf-file-dclick', (event: unknown) => {
+  emit('file-dclick', event);
+});
+
+app.emitter.on('vf-folder-dclick', (event: unknown) => {
+  emit('folder-dclick', event);
+});
+
+// Watch for theme changes in config prop
+watch(
+  () => props.config?.theme,
+  (newTheme) => {
+    if (newTheme) {
+      config.set('theme', unref(newTheme));
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  reactiveLocale,
+  (newLocale, oldLocale) => {
+    if (newLocale !== oldLocale) {
+      emit('update:locale', String(newLocale));
+    }
+  },
+  { immediate: false }
+);
+
+// fetch initial data
+onMounted(() => {
+  app.root = root.value;
+  watch(
+    () => config.get('path'),
+    (path: string | undefined) => {
+      // fetchPath(path);
+      app.adapter.open(path);
+    }
+  );
+
+  const initialPath = config.get('persist')
+    ? config.get('path')
+    : (config.get('initialPath') ?? '');
+  fs.setPath(initialPath);
+  app.adapter.open(initialPath);
+  //fetchPath(initialPath);
+
+  // Emit path-change event based on store path
+  fs.path.listen((path: { path: string }) => {
+    emit('path-change', path.path);
+  });
+
+  // Emit select event based on store selected items
+  fs.selectedItems.listen((items: DirEntry[] | null) => {
+    emit('select', items);
+  });
+
+  // Emit ready event when VueFinder is initialized
+  emit('ready');
+});
+
+// External drag & drop handler
+const handleExternalDrop = async (e: DragEvent) => {
+  const droppedFiles = await handleDrop(e);
+  if (droppedFiles.length > 0) {
+    app.modal.open(ModalUpload);
+
+    setTimeout(() => {
+      app.emitter.emit(
+        'vf-external-files-dropped',
+        droppedFiles.map((f) => f.file)
+      );
+    }, 100);
+  }
+};
+</script>
+
+<template>
+  <div
+    ref="root"
+    tabindex="0"
+    class="vuefinder vuefinder__main vuefinder__themer"
+    :data-theme="app.theme.current"
+    :class="{ 'vuefinder--dragging-external': isDraggingExternal }"
+    :style="rootStyle"
+    @dragenter="handleDragEnter"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleExternalDrop"
+  >
+    <div :class="app.theme.current" style="height: 100%; width: 100%">
+      <div
+        :class="
+          (configState as any)?.fullScreen ? 'vuefinder__main__fixed' : 'vuefinder__main__relative'
+        "
+        class="vuefinder__main__container"
+        @mousedown="app.emitter.emit('vf-contextmenu-hide')"
+        @touchstart="app.emitter.emit('vf-contextmenu-hide')"
+      >
+        <!-- External Drag Drop Overlay -->
+        <div
+          v-if="isDraggingExternal"
+          class="vuefinder__external-drop-overlay vuefinder__external-drop-overlay--relative"
+        >
+          <div class="vuefinder__external-drop-message">
+            {{ app.i18n.t('Drag and drop the files/folders to here.') }}
+          </div>
+        </div>
+
+        <MenuBar v-if="configState.showMenuBar" />
+        <Toolbar v-if="configState.showToolbar" />
+        <Breadcrumb />
+        <div class="vuefinder__main__content">
+          <TreeView />
+          <Explorer :on-file-dclick="props.onFileDclick" :on-folder-dclick="props.onFolderDclick">
+            <template #icon="slotProps">
+              <slot name="icon" v-bind="slotProps" />
+            </template>
+          </Explorer>
+        </div>
+        <Statusbar>
+          <template #actions="slotProps">
+            <slot name="status-bar" v-bind="slotProps" />
+          </template>
+        </Statusbar>
+      </div>
+      <Teleport to="body">
+        <Transition name="fade">
+          <Component :is="app.modal.type" v-if="app.modal.visible" />
+        </Transition>
+      </Teleport>
+      <ContextMenu :items="contextMenuItems" />
+      <Toaster
+        v-if="configState.notificationsEnabled"
+        :position="configState.notificationPosition"
+        :duration="configState.notificationDuration"
+        :visible-toasts="configState.notificationVisibleToasts"
+        :rich-colors="configState.notificationRichColors"
+      />
+    </div>
+  </div>
+</template>

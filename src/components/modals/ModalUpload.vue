@@ -1,0 +1,382 @@
+<script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+import { useStore } from '@nanostores/vue';
+import Message from '../../components/Message.vue';
+import ModalHeader from '../../components/modals/ModalHeader.vue';
+import ModalLayout from '../../components/modals/ModalLayout.vue';
+import ModalTreeSelector from './ModalTreeSelector.vue';
+import useUpload from '../../composables/useUpload';
+import UploadSVG from '../../assets/icons/upload.svg';
+import { titleShorten } from '../../utils/titleShorten';
+import type { DirEntry } from '../../types';
+import type { StoreValue } from 'nanostores';
+import type { CurrentPathState } from '../../stores/files';
+
+import { useApp } from '../../composables/useApp';
+const app = useApp();
+const { t } = app.i18n;
+const fs = app.fs;
+const currentPath: StoreValue<CurrentPathState> = useStore(fs.path);
+
+// Target folder selection
+const target = ref<DirEntry>(currentPath.value);
+const showTreeSelector = ref(false);
+
+// Simple function to split storage and path
+const getTargetParts = () => {
+  const path = target.value.path;
+  if (!path) return { storage: 'local', path: '' };
+
+  // For storage roots like "local://", just return the storage name
+  if (path.endsWith('://')) {
+    return { storage: path.replace('://', ''), path: '' };
+  }
+
+  // Split storage and path
+  const parts = path.split('://');
+  return {
+    storage: parts[0] || 'local',
+    path: parts[1] || '',
+  };
+};
+
+const selectTargetFolder = (folder: DirEntry | null) => {
+  if (folder) {
+    target.value = folder;
+  }
+};
+
+const selectTargetFolderAndClose = (folder: DirEntry | null) => {
+  if (folder) {
+    target.value = folder;
+    showTreeSelector.value = false;
+  }
+};
+
+const {
+  container,
+  internalFileInput,
+  internalFolderInput,
+  pickFiles,
+  queue,
+  message,
+  uploading,
+  hasFilesInDropArea,
+  definitions,
+  openFileSelector,
+  upload: originalUpload,
+  cancel,
+  remove,
+  clear,
+  close,
+  getClassNameForEntry,
+  getIconForEntry,
+  addExternalFiles,
+} = useUpload(app.customUploader);
+
+// Override upload function to use target folder
+const upload = () => {
+  // Update the upload function to use the selected target folder
+  originalUpload(target.value);
+};
+
+// Dışarıdan gelen dosyaları dinle
+onMounted(() => {
+  app.emitter.on('vf-external-files-dropped', (event: unknown) => {
+    addExternalFiles(event as File[]);
+  });
+});
+
+onUnmounted(() => {
+  app.emitter.off('vf-external-files-dropped');
+});
+
+// Dropdown state
+const showActions = ref(false);
+
+// Close dropdown on outside click (handle both mobile and desktop menus)
+const actionsMenuMobileRef = ref<HTMLElement | null>(null);
+const actionsMenuDesktopRef = ref<HTMLElement | null>(null);
+const onClickOutside = (e: MouseEvent) => {
+  if (!showActions.value) return;
+  const target = e.target as Node;
+  const inMobile = actionsMenuMobileRef.value?.contains(target) ?? false;
+  const inDesktop = actionsMenuDesktopRef.value?.contains(target) ?? false;
+  if (!inMobile && !inDesktop) showActions.value = false;
+};
+onMounted(() => document.addEventListener('click', onClickOutside));
+onUnmounted(() => document.removeEventListener('click', onClickOutside));
+</script>
+
+<template>
+  <ModalLayout
+    :show-drag-overlay="hasFilesInDropArea"
+    :drag-overlay-text="t('Drag and drop the files/folders to here.')"
+  >
+    <div>
+      <ModalHeader :icon="UploadSVG" :title="t('Upload Files')"></ModalHeader>
+      <div class="vuefinder__upload-modal__content relative">
+        <!-- Target Folder Selection - Compact version above dropzone -->
+        <div class="vuefinder__upload-modal__target-section">
+          <div class="vuefinder__upload-modal__target-label">{{ t('Target Directory') }}</div>
+          <div class="vuefinder__upload-modal__target-container">
+            <div
+              class="vuefinder__upload-modal__target-display"
+              @click="showTreeSelector = !showTreeSelector"
+            >
+              <div class="vuefinder__upload-modal__target-path">
+                <span class="vuefinder__upload-modal__target-storage"
+                  >{{ getTargetParts().storage }}://</span
+                >
+                <span v-if="getTargetParts().path" class="vuefinder__upload-modal__target-folder">{{
+                  getTargetParts().path
+                }}</span>
+              </div>
+              <span class="vuefinder__upload-modal__target-badge">{{ t('Browse') }}</span>
+            </div>
+          </div>
+
+          <!-- Tree selector -->
+          <div
+            class="vuefinder__upload-modal__tree-selector"
+            :class="
+              showTreeSelector
+                ? 'vuefinder__upload-modal__tree-selector--expanded'
+                : 'vuefinder__upload-modal__tree-selector--collapsed'
+            "
+          >
+            <ModalTreeSelector
+              v-model="target"
+              :show-pinned-folders="true"
+              @update:model-value="selectTargetFolder"
+              @select-and-close="selectTargetFolderAndClose"
+            />
+          </div>
+        </div>
+
+        <!-- Drag and drop hint -->
+        <div class="vuefinder__upload-modal__drag-hint">
+          {{ t('You can drag & drop files anywhere while this modal is open.') }}
+        </div>
+
+        <!-- Container for programmatic hooks -->
+        <div ref="container" class="hidden"></div>
+        <div class="vuefinder__upload-modal__file-list vf-scrollbar">
+          <div v-for="entry in queue" :key="entry.id" class="vuefinder__upload-modal__file-entry">
+            <span class="vuefinder__upload-modal__file-icon" :class="getClassNameForEntry(entry)">
+              <span
+                class="vuefinder__upload-modal__file-icon-text"
+                v-text="getIconForEntry(entry)"
+              ></span>
+            </span>
+            <div class="vuefinder__upload-modal__file-info">
+              <div class="vuefinder__upload-modal__file-name hidden md:block">
+                {{ titleShorten(entry.name, 40) }} ({{ entry.size }})
+              </div>
+              <div class="vuefinder__upload-modal__file-name md:hidden">
+                {{ titleShorten(entry.name, 16) }} ({{ entry.size }})
+              </div>
+              <div
+                class="vuefinder__upload-modal__file-status"
+                :class="getClassNameForEntry(entry)"
+              >
+                {{ entry.statusName }}
+                <b
+                  v-if="entry.status === definitions.QUEUE_ENTRY_STATUS.UPLOADING"
+                  class="ml-auto"
+                  >{{ entry.percent }}</b
+                >
+              </div>
+            </div>
+            <button
+              type="button"
+              class="vuefinder__upload-modal__file-remove"
+              :class="uploading ? 'disabled' : ''"
+              :title="t('Delete')"
+              :disabled="uploading"
+              @click="remove(entry)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="vuefinder__upload-modal__file-remove-icon"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
+          <div v-if="!queue.length" class="py-2">{{ t('No files selected!') }}</div>
+        </div>
+
+        <Message v-if="message.length" error @hidden="message = ''">{{ message }}</Message>
+      </div>
+    </div>
+    <input ref="internalFileInput" type="file" multiple class="hidden" />
+    <input ref="internalFolderInput" type="file" multiple webkitdirectory class="hidden" />
+
+    <template #buttons>
+      <!-- Mobile group: above Upload -->
+      <div ref="actionsMenuMobileRef" class="relative mb-2 w-full sm:hidden">
+        <div
+          :class="[
+            'vuefinder__upload-actions',
+            'vuefinder__upload-actions--block',
+            showActions ? 'vuefinder__upload-actions--ring' : '',
+          ]"
+        >
+          <button type="button" class="vuefinder__upload-actions__main" @click="openFileSelector()">
+            {{ t('Select Files') }}
+          </button>
+          <button
+            type="button"
+            class="vuefinder__upload-actions__trigger"
+            aria-haspopup="menu"
+            :aria-expanded="showActions ? 'true' : 'false'"
+            @click.stop="showActions = !showActions"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          v-if="showActions"
+          class="vuefinder__upload-actions__menu absolute right-0 bottom-full left-0 mb-2"
+        >
+          <div
+            class="vuefinder__upload-actions__item"
+            @click="
+              openFileSelector();
+              showActions = false;
+            "
+          >
+            {{ t('Select Files') }}
+          </div>
+          <div
+            class="vuefinder__upload-actions__item"
+            @click="
+              internalFolderInput?.click();
+              showActions = false;
+            "
+          >
+            {{ t('Select Folders') }}
+          </div>
+          <div class="vuefinder__upload-actions__separator"></div>
+          <div
+            :class="['vuefinder__upload-actions__item', uploading ? 'disabled' : '']"
+            @click="uploading ? null : (clear(false), (showActions = false))"
+          >
+            {{ t('Clear all') }}
+          </div>
+          <div
+            :class="['vuefinder__upload-actions__item', uploading ? 'disabled' : '']"
+            @click="uploading ? null : (clear(true), (showActions = false))"
+          >
+            {{ t('Clear only successful') }}
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="vf-btn vf-btn-primary"
+        :disabled="uploading || !queue.length"
+        @click.prevent="upload"
+      >
+        {{ t('Upload') }}
+      </button>
+      <button
+        v-if="uploading"
+        type="button"
+        class="vf-btn vf-btn-secondary"
+        @click.prevent="cancel"
+      >
+        {{ t('Cancel') }}
+      </button>
+      <button v-else type="button" class="vf-btn vf-btn-secondary" @click.prevent="close">
+        {{ t('Close') }}
+      </button>
+
+      <!-- Desktop group: far left (row-reverse makes last child appear leftmost) -->
+      <div ref="actionsMenuDesktopRef" class="relative mr-auto hidden sm:block">
+        <div
+          class="vuefinder__upload-actions"
+          :class="showActions ? 'vuefinder__upload-actions--ring' : ''"
+        >
+          <button ref="pickFiles" type="button" class="vuefinder__upload-actions__main">
+            {{ t('Select Files') }}
+          </button>
+          <button
+            type="button"
+            class="vuefinder__upload-actions__trigger"
+            aria-haspopup="menu"
+            :aria-expanded="showActions ? 'true' : 'false'"
+            @click.stop="showActions = !showActions"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+        <div v-if="showActions" class="vuefinder__upload-actions__menu">
+          <div
+            class="vuefinder__upload-actions__item"
+            @click="
+              openFileSelector();
+              showActions = false;
+            "
+          >
+            {{ t('Select Files') }}
+          </div>
+          <div
+            class="vuefinder__upload-actions__item"
+            @click="
+              internalFolderInput?.click();
+              showActions = false;
+            "
+          >
+            {{ t('Select Folders') }}
+          </div>
+          <div class="vuefinder__upload-actions__separator"></div>
+          <div
+            :class="['vuefinder__upload-actions__item', uploading ? 'disabled' : '']"
+            @click="uploading ? null : (clear(false), (showActions = false))"
+          >
+            {{ t('Clear all') }}
+          </div>
+          <div
+            :class="['vuefinder__upload-actions__item', uploading ? 'disabled' : '']"
+            @click="uploading ? null : (clear(true), (showActions = false))"
+          >
+            {{ t('Clear only successful') }}
+          </div>
+        </div>
+      </div>
+    </template>
+  </ModalLayout>
+</template>

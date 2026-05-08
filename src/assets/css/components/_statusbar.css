@@ -1,0 +1,43 @@
+.vuefinder__status-bar__wrapper {
+  @apply flex grow-0 justify-between border-t border-(--vf-border-primary) p-1 text-xs select-none;
+}
+
+.vuefinder__status-bar__storage {
+  @apply flex items-center leading-5;
+}
+
+.vuefinder__status-bar__storage-container {
+  @apply flex items-center rounded border border-(--vf-border-primary) bg-(--vf-bg-primary) leading-5;
+  @apply relative;
+}
+
+.vuefinder__status-bar__storage-icon {
+  @apply pointer-events-none z-[1] h-4 w-4;
+}
+
+.vuefinder__status-bar__storage-select {
+  @apply cursor-pointer rounded border-0 bg-(--vf-bg-primary) py-0.5 text-xs text-(--vf-text-secondary) uppercase focus:outline-0;
+  @apply appearance-none pr-4;
+}
+
+.vuefinder__status-bar__info {
+  @apply ml-3;
+}
+
+.vuefinder__status-bar__selected-count {
+  @apply ml-1;
+}
+
+.vuefinder__status-bar__actions {
+  @apply flex items-center justify-end leading-5;
+}
+
+/* Caret indicator (up/down chevrons) */
+.vuefinder__status-bar__storage-caret {
+  @apply pointer-events-none absolute top-1/2 right-1 h-[12px] w-[9px] -translate-y-1/2 transform bg-contain bg-center bg-no-repeat opacity-50;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12' fill='currentColor'><path d='M4 1l3 3H1l3-3zM4 11l-3-3h6l-3 3z'/></svg>");
+}
+
+.vuefinder__themer .vuefinder__status-bar__about {
+  @apply mr-1;
+}
