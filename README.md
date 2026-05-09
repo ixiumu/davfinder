@@ -3,11 +3,11 @@
 A high-performance, modern web interface for managing your WebDAV storage. Built for speed, security, and a native-like file management experience.
 
 [![NPM Version](https://img.shields.io/npm/v/davfinder)](https://www.npmjs.com/package/davfinder)
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen.svg)](https://davfinder.pages.dev/?server=https://webdav-demo.pages.dev/&username=demo&password=demo)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen.svg)](https://davfinder.js.org/?server=https://webdav-demo.pages.dev/&username=demo&password=demo)
 
 A high-performance, modern web interface for managing your WebDAV storage. Built for speed, security, and a native-like file management experience. Powered by Vue 3 and VueFinder.
 
-> **🎮 [Click here to try the Live Demo!](https://davfinder.pages.dev/?server=https://webdav-demo.pages.dev/&username=demo&password=demo)**
+> **🎮 [Click here to try the Live Demo!](https://davfinder.js.org/?server=https://webdav-demo.pages.dev/&username=demo&password=demo)**
 > *(Read-only virtual file system. No setup required.)*
 
 ## Installation
