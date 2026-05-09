@@ -1,6 +1,6 @@
 {
   "name": "davfinder",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A file manager for WebDAV.",
   "type": "module",
   "engines": {
@@ -41,6 +41,7 @@
     "uploader",
     "finder"
   ],
+  "license": "MIT",
   "peerDependencies": {
     "vue": "^3.5.22"
   },

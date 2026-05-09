@@ -4,6 +4,7 @@ import './assets/css/style.css';
 import { menuItems as contextMenuItems, ContextMenuIds } from './utils/contextmenu';
 import { type App } from 'vue';
 import {
+  WebDAVDriver,
   RemoteDriver,
   ArrayDriver,
   IndexedDBDriver,
@@ -37,7 +38,7 @@ export default VueFinderPlugin;
 export { VueFinder, VueFinderProvider, contextMenuItems, ContextMenuIds };
 export { useVueFinder };
 
-export { RemoteDriver, ArrayDriver, IndexedDBDriver, BaseAdapter, parseBackendError };
+export { WebDAVDriver, RemoteDriver, ArrayDriver, IndexedDBDriver, BaseAdapter, parseBackendError };
 
 // Export types from types.ts
 export type {
