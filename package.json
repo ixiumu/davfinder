@@ -1,6 +1,6 @@
 {
   "name": "davfinder",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A file manager for WebDAV.",
   "type": "module",
   "engines": {
@@ -33,6 +33,10 @@
     "type-gen": "vue-tsc -p tsconfig.app.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ixiumu/davfinder.git"
   },
   "keywords": [
     "file-manager",
