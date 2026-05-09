@@ -2,7 +2,6 @@ import { onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useStore } from '@nanostores/vue';
 import type { StoreValue } from 'nanostores';
 import type { App, DirEntry } from '../types';
-import ModalAbout from '../components/modals/ModalAbout.vue';
 import ModalDelete from '../components/modals/ModalDelete.vue';
 import ModalRename from '../components/modals/ModalRename.vue';
 import ModalPreview from '../components/modals/ModalPreview.vue';
@@ -65,7 +64,6 @@ export function useHotkeyActions() {
         app.modal.open(ModalDelete, { items: selectedItems.value });
       }
     }
-    if (e.metaKey && e.code === KEYBOARD_SHORTCUTS.BACKSLASH) app.modal.open(ModalAbout);
     if (e.metaKey && e.code === KEYBOARD_SHORTCUTS.KEY_F && enabled('search')) {
       // Open search modal
       app.modal.open(ModalSearch);
