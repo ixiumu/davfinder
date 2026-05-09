@@ -63,9 +63,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, shallowRef } from 'vue';
-// import { VueFinder, contextMenuItems } from 'vuefinder';
 import { WebDAVDriver } from '../src/adapters';
-// import 'vuefinder/dist/style.css';
 import { contextMenuItems } from '../src';
 
 const urlParams = new URLSearchParams(window.location.search);
